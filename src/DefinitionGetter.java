@@ -11,12 +11,32 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
 
 @WebServlet("/getDefinition/*")
 public class DefinitionGetter extends HttpServlet {
+
+    private static boolean checkClosestPreviousEntryHeadElement(Element element, Element entryHead) {
+
+        /*
+        * This method is used to check if the closest previous entry head element
+        * of the element specified by the element argument,
+        * is entryHead, specified by the argument entryHead
+        *
+        * if so, it means that the specified element is one of those that belongs to the sense
+        * whose entry head is entryHead
+        */
+
+        Element cur = element.previousElementSibling();
+        // Find the closest entry head element
+        while (cur != null && (!cur.tagName().equals("div") || !cur.hasClass("entryHead"))) {
+            cur = cur.previousElementSibling();
+        }
+
+        Element closestEntryHead = cur;
+        return closestEntryHead != null && closestEntryHead.id().equals(entryHead.id());
+    }
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -58,17 +78,21 @@ public class DefinitionGetter extends HttpServlet {
                 Element curSenseEntryHead = entryHeadOfSenses.get(curSense);
                 Elements defSectionOfEachPosOfAllSenses = curSenseEntryHead.siblingElements().select("section.gramb");
                 // We now get all <section> elements that contain defs that belong to all senses
+                // (as they are all sibling elements to each other)
 
 
-                // To get rid of the <section> elements that belong to other senses,
-                // we need to do some checks and removals first
-                Elements entryHeadOfOtherSenses = new Elements(entryHeadOfSenses);
-                entryHeadOfOtherSenses.remove(curSense);
-
-
-
-
+                // TODO: To check whether this defSection is what we want or not, we need to check its closest
+                //  previous entry head element and check if it's the entry head element we currently want
                 Elements defSectionOfEachPosOfCurSense = new Elements();
+                for (Element section: defSectionOfEachPosOfAllSenses) {
+                    if (checkClosestPreviousEntryHeadElement(section, curSenseEntryHead)) {
+                        defSectionOfEachPosOfCurSense.add(section);
+                    }
+                }
+
+
+
+
                 for (Element defSectionOfPos : defSectionOfEachPosOfCurSense) {
                     String curPos = defSectionOfPos.selectFirst("h3.pos").selectFirst("span.pos").text();
                     if (allPos[curSense] == null) allPos[curSense] = new ArrayList<>();
@@ -93,6 +117,7 @@ public class DefinitionGetter extends HttpServlet {
                     new ArrayList<ArrayList<String>>(Arrays.asList(allPos)),
                     new ArrayList<ArrayList<Definition>>(Arrays.asList(defsOfSenses)));
             String json = JSON.toJSONString(responseContent);
+            resp.setContentType("application/json");
             resp.getWriter().write(json);
         }
     }
