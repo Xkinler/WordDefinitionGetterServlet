@@ -1,5 +1,6 @@
 import com.alibaba.fastjson.JSON;
 import org.jsoup.Connection;
+import org.jsoup.HttpStatusException;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -42,9 +43,6 @@ public class DefinitionGetter extends HttpServlet {
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         /*
          * Get definition from http://lexico.com and create a JSON response for the definitions
-         *
-         * Parameters:
-         *
          */
 
         String contextPath = req.getPathInfo();
@@ -53,16 +51,13 @@ public class DefinitionGetter extends HttpServlet {
         // Then contextPath should be "/test"
 
         String requestedWord = contextPath.substring(1); // The word the user requested
-        Connection connection = Jsoup.connect("https://www.lexico.com/en/definition/" + requestedWord);
-        // The connection object we use to obtain both the document and the status code
-        if (connection.response().statusCode() == 404) {
-            try {
-                resp.getWriter().write(JSON.toJSONString(new ResponseContent(requestedWord,404)));
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        } else {
-            Document doc = connection.get();
+        try {
+            Connection.Response response;
+            response = Jsoup.connect("https://www.lexico.com/en/definition/" + requestedWord).execute();
+            // Just too long to be put in one line....
+
+            // The response we get from requesting the URL for word definitions.
+            Document doc = response.parse();
 
             int senseNum = doc.select("span.hw > sup").size();
             if (senseNum == 0) {
@@ -81,8 +76,6 @@ public class DefinitionGetter extends HttpServlet {
                 // (as they are all sibling elements to each other)
 
 
-                // TODO: To check whether this defSection is what we want or not, we need to check its closest
-                //  previous entry head element and check if it's the entry head element we currently want
                 Elements defSectionOfEachPosOfCurSense = new Elements();
                 for (Element section: defSectionOfEachPosOfAllSenses) {
                     if (checkClosestPreviousEntryHeadElement(section, curSenseEntryHead)) {
@@ -119,6 +112,14 @@ public class DefinitionGetter extends HttpServlet {
             String json = JSON.toJSONString(responseContent);
             resp.setContentType("application/json");
             resp.getWriter().write(json);
+        } catch (HttpStatusException e) {
+            if (e.getStatusCode() == 404) {
+                try {
+                    resp.getWriter().write(JSON.toJSONString(new ResponseContent(requestedWord,404)));
+                } catch (Exception e2) {
+                    e2.printStackTrace();
+                }
+            }
         }
     }
 }
