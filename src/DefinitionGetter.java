@@ -54,17 +54,20 @@ public class DefinitionGetter extends HttpServlet {
         try {
             Connection.Response response;
             response = Jsoup.connect("https://www.lexico.com/en/definition/" + requestedWord).execute();
-            // Just too long to be put in one line....
+            // response is the object that contains our response corresponding to the requested word from lexico
 
-            // The response we get from requesting the URL for word definitions.
+            // The HTML document of the result page from lexico
             Document doc = response.parse();
+
 
             int senseNum = doc.select("span.hw > sup").size();
             if (senseNum == 0) {
                 senseNum = 1;
             }
 
+            // Contains all parts of speech that this word has for each sense it has.
             ArrayList<String>[] allPos = new ArrayList[senseNum];
+
 
             ArrayList<Definition>[] defsOfSenses = new ArrayList[senseNum];
             Elements entryHeadOfSenses = doc.select("div.entryHead"); // The header of each entry
@@ -107,8 +110,8 @@ public class DefinitionGetter extends HttpServlet {
 
 
             ResponseContent responseContent = new ResponseContent(requestedWord,
-                    new ArrayList<ArrayList<String>>(Arrays.asList(allPos)),
-                    new ArrayList<ArrayList<Definition>>(Arrays.asList(defsOfSenses)));
+                    new ArrayList<>(Arrays.asList(allPos)),
+                    new ArrayList<>(Arrays.asList(defsOfSenses)));
             String json = JSON.toJSONString(responseContent);
             resp.setContentType("application/json");
             resp.getWriter().write(json);
